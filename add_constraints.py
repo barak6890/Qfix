@@ -63,3 +63,45 @@ def add_products(u, v, problem):
     problem += w == u + v
     
     return w
+
+def add_e_constraints(problem, R, C, e_vars, t_vars, ghost, M):
+    """
+    Enforce:
+        e_{q_i,t_j} = 1 - ( [t_j.A == ghost] AND [t_j^{*}.A == ghost] )
+
+    Args:
+        problem   : pulp.LpProblem instance
+        R         : List of rows (so j indexes into R).
+        C         : Complaints, so that C[j]["correct"]["A"] is a known constant for row j.
+        e_vars    : dict {(i,j) -> pulp.LpVariable (Binary)} for e_{q_i,t_j}.
+        t_vars    : dict {(i,j) -> pulp.LpVariable} for the *unknown* attribute t_j.A in the MILP.
+        ghost     : Numeric value that marks a 'deleted' or 'incorrect' record (was M_minus).
+        M         : Big-M constant for the is_equal function.
+    """
+    for (i, j), e_var in e_vars.items():
+        # 1) b1 = [t_j.A == ghost]
+        #    We have a real PuLP variable (t_vars[i,j]) for the DB state
+        t_Aj_var = t_vars[(i, j)]   # The MILP variable for row j's attribute A in query i
+        b1, c1 = is_equal(t_Aj_var, ghost, M)  # Reuses your "is_equal" function
+        for c in c1:
+            problem += c
+
+        # 2) b2 = [t_j^*.A == ghost]
+        #    The complaint's "correct" A-value is just a known constant: no big-M needed!
+        t_star_Aj_val = C[j]["correct"]["A"]
+        b2 = pulp.LpVariable(f"b2_q{i}_t{j}", cat="Binary")
+        if t_star_Aj_val == ghost:
+            # If the complaint says the correct value IS ghost => fix b2=1
+            problem += (b2 == 1), f"fix_b2_eq_1_q{i}_t{j}"
+        else:
+            # If the complaint says the correct value != ghost => fix b2=0
+            problem += (b2 == 0), f"fix_b2_eq_0_q{i}_t{j}"
+
+        # 3) b_and = b1 AND b2
+        #    This uses your existing "and_binary(b1, b2)" function
+        b_and, c_and = and_binary(b1, b2)
+        for c in c_and:
+            problem += c
+
+        # 4) e_{q_i,t_j} = 1 - b_and  =>  e_var + b_and == 1
+        problem += e_var + b_and == 1, f"enforce_not_and_q{i}_t{j}"

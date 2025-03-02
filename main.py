@@ -69,6 +69,8 @@ def MILP(R, D_n, parsed_Q, C, problem):
 
     c_vars_where, u_vars_set = add_query_constant_variables(parsed_Q)
 
+    
+
 
 def main():
     # Example database states and queries for testing
