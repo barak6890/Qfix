@@ -43,3 +43,23 @@ def is_equal(v1, v2, M):
     b2, c2 = is_less_equal(v2, v1, M)
     b, c_and = and_binary(b1, b2)
     return b, c1 + c2 + c_and
+
+def add_products(u, v, problem):
+    """
+    Adds two MILP variables u and v, returning a new variable w representing their sum.
+
+    Args:
+        u (pulp.LpVariable): The first variable (e.g., result of x * mu.A_j).
+        v (pulp.LpVariable): The second variable (e.g., result of (1 - x) * t.A_j).
+        problem (pulp.LpProblem): The MILP problem to which the constraint is added.
+
+    Returns:
+        pulp.LpVariable: A new variable w where w = u + v.
+    """
+    # Create a new continuous variable to hold the sum
+    w = pulp.LpVariable(f"sum_{u.name}_{v.name}", cat="Continuous")
+    
+    # Add the constraint w = u + v to the problem
+    problem += w == u + v
+    
+    return w
